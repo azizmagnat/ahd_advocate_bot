@@ -34,11 +34,11 @@ async def process_question_text(message: types.Message, state: FSMContext, sessi
 async def process_pay_click(callback: types.CallbackQuery, state: FSMContext):
     question_id = int(callback.data.split(":")[1])
     await state.update_data(question_id=question_id)
-    await state.set_state(SendProof.waiting_for_proof)
+    await state.set_state(SendProof.waiting_for_screenshot)
     await callback.message.answer("Please send a screenshot of the payment receipt.", reply_markup=common_kb.get_cancel_kb())
     await callback.answer()
 
-@router.message(SendProof.waiting_for_proof, F.photo)
+@router.message(SendProof.waiting_for_screenshot, F.photo)
 async def process_proof_photo(message: types.Message, state: FSMContext, session: AsyncSession, bot: Bot):
     data = await state.get_data()
     question_id = data.get("question_id")
