@@ -13,6 +13,14 @@ async def main():
     bot = Bot(token=config.bot_token.get_secret_value())
     dp = Dispatcher(storage=MemoryStorage())
 
+    # Initialize database for SQLite (skip for PostgreSQL as migrations handle it)
+    if "sqlite" in config.database_url:
+        from bot.database.session import engine
+        from bot.database.models import Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logging.info("SQLite database initialized")
+
     # Middleware
     from bot.middlewares.db import DbSessionMiddleware
     dp.update.middleware(DbSessionMiddleware())
