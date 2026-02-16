@@ -1,0 +1,10 @@
+aiogram>=3.10.0
+sqlalchemy[asyncio]>=2.0.0
+asyncpg
+aiosqlite
+python-dotenv
+pydantic-settings
+alembic
+pytest
+pytest-asyncio
+greenlet
