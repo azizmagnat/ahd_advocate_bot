@@ -1,7 +1,8 @@
 """
 Google Gemini AI client for legal bot
 """
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from typing import Optional
 from bot.config import config
 import logging
@@ -12,10 +13,10 @@ class GeminiClient:
     def __init__(self):
         self.enabled = config.enable_ai_responses and config.gemini_api_key is not None
         if self.enabled:
-            genai.configure(api_key=config.gemini_api_key.get_secret_value())
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.client = genai.Client(api_key=config.gemini_api_key.get_secret_value())
             logging.info("Gemini AI initialized successfully")
         else:
+            self.client = None
             logging.info("Gemini AI disabled (no API key or disabled in config)")
     
     async def generate_text(self, prompt: str, temperature: float = 0.7) -> Optional[str]:
@@ -29,13 +30,14 @@ class GeminiClient:
         Returns:
             Generated text or None if disabled/error
         """
-        if not self.enabled:
+        if not self.enabled or not self.client:
             return None
         
         try:
-            response = await self.model.generate_content_async(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
+            response = await self.client.aio.models.generate_content(
+                model='gemini-2.0-flash-exp',
+                contents=prompt,
+                config=types.GenerateContentConfig(
                     temperature=temperature,
                     max_output_tokens=2048
                 )
