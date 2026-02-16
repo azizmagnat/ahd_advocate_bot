@@ -79,7 +79,7 @@ async def process_proof_photo(message: types.Message, state: FSMContext, session
             caption=(
                 f"🆕 <b>Yangi to'lov!</b>\n\n"
                 f"Savol ID: #{question_id}\n"
-                f"Mijoz: {message.from_user.full_name} (@{message.from_user.username or 'yo'q'})\n"
+                f"Mijoz: {message.from_user.full_name} (@{message.from_user.username or 'yo-q'})\n"
                 f"Suma: 50,000 so'm"
             ),
             reply_markup=get_payment_action_kb(payment.id),
