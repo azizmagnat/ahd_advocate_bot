@@ -11,14 +11,18 @@ class GeminiClient:
     """Google Gemini AI client wrapper using direct REST API"""
     
     
-    # List of models to try in order
-    # gemini-2.0-flash-lite seems to be the only one available (gave 429, others gave 404)
+    # List of models to try in order (Comprehensive Fallback)
     MODELS = [
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+        'gemini-pro',
         'gemini-2.0-flash-lite-preview-02-05',
         'gemini-2.0-flash-exp',
     ]
     
-    BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    # Try both v1beta and v1 API versions
+    BASE_URL_BETA = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    BASE_URL_V1 = "https://generativelanguage.googleapis.com/v1/models/{model}:generateContent"
     
     def __init__(self):
         self.api_key = config.gemini_api_key.get_secret_value() if config.gemini_api_key else None
@@ -39,46 +43,48 @@ class GeminiClient:
         
         async with aiohttp.ClientSession() as session:
             for model_name in self.MODELS:
-                try:
-                    logging.info(f"Trying Gemini model (REST): {model_name}")
-                    
-                    url = self.BASE_URL.format(model=model_name)
-                    params = {"key": self.api_key}
-                    
-                    headers = {"Content-Type": "application/json"}
-                    payload = {
-                        "contents": [{
-                            "parts": [{"text": prompt}]
-                        }],
-                        "generationConfig": {
-                            "temperature": temperature,
-                            "maxOutputTokens": 2048
+                # Try v1beta first, then v1
+                for base_url in [self.BASE_URL_BETA, self.BASE_URL_V1]:
+                    try:
+                        version = "v1beta" if "v1beta" in base_url else "v1"
+                        logging.info(f"Trying Gemini model: {model_name} ({version})")
+                        
+                        url = base_url.format(model=model_name)
+                        params = {"key": self.api_key}
+                        
+                        headers = {"Content-Type": "application/json"}
+                        payload = {
+                            "contents": [{
+                                "parts": [{"text": prompt}]
+                            }],
+                            "generationConfig": {
+                                "temperature": temperature,
+                                "maxOutputTokens": 2048
+                            }
                         }
-                    }
-                    
-                    async with session.post(url, params=params, json=payload, headers=headers) as response:
-                        if response.status != 200:
+                        
+                        async with session.post(url, params=params, json=payload, headers=headers) as response:
+                            if response.status == 200:
+                                data = await response.json()
+                                # Extract text from response
+                                if 'candidates' in data and data['candidates']:
+                                    content = data['candidates'][0].get('content', {})
+                                    parts = content.get('parts', [])
+                                    if parts:
+                                        logging.info(f"SUCCESS: Model {model_name} ({version}) worked!")
+                                        return parts[0].get('text', '')
+                                
+                                logging.warning(f"Empty response from {model_name}: {data}")
+                                continue
+                                
                             error_text = await response.text()
-                            logging.warning(f"Model {model_name} failed with status {response.status}: {error_text}")
+                            logging.warning(f"Model {model_name} ({version}) failed with status {response.status}: {error_text}")
                             last_error = f"Status {response.status}: {error_text}"
-                            continue
                             
-                        data = await response.json()
-                        
-                        # Extract text from response
-                        if 'candidates' in data and data['candidates']:
-                            content = data['candidates'][0].get('content', {})
-                            parts = content.get('parts', [])
-                            if parts:
-                                return parts[0].get('text', '')
-                        
-                        logging.warning(f"Empty response from {model_name}: {data}")
+                    except Exception as e:
+                        logging.warning(f"Model {model_name} ({version}) error: {e}")
+                        last_error = e
                         continue
-                        
-                except Exception as e:
-                    logging.warning(f"Model {model_name} error: {e}")
-                    last_error = e
-                    continue
         
         logging.error(f"All Gemini models failed. Last error: {last_error}")
         return None
