@@ -1,6 +1,7 @@
 from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+from sqlalchemy.ext.asyncio import AsyncSession
 from bot.keyboards.user import get_main_kb
 from bot.keyboards.admin import get_admin_main_kb
 from bot.config import config
@@ -8,8 +9,16 @@ from bot.config import config
 router = Router()
 
 @router.message(Command("start"))
-async def cmd_start(message: types.Message, state: FSMContext):
+async def cmd_start(message: types.Message, state: FSMContext, session: AsyncSession):
     await state.clear()
+    
+    # Register user in DB
+    from bot.database import crud
+    from bot.database.models import UserRole
+    user = await crud.get_user_by_telegram_id(session, message.from_user.id)
+    if not user:
+        await crud.create_user(session, message.from_user.id, UserRole.USER)
+
     welcome_text = (
         f"Assalomu alaykum, <b>{message.from_user.full_name}</b>!\n\n"
         "Advokatlik xizmati botiga xush kelibsiz. Bu yerda siz o'z savollaringizni berishingiz "
