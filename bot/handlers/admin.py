@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.states.admin import AnswerQuestion
 from bot.keyboards import admin as admin_kb
-from bot.blocks import common as common_kb # Assuming I might need cancel, but not essential
+from bot.keyboards import common as common_kb # Assuming I might need cancel, but not essential
 from bot.services.payment_service import PaymentService
 from bot.services.question_service import QuestionService
 from bot.middlewares.auth import AdminMiddleware
