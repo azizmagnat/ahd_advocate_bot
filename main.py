@@ -29,6 +29,13 @@ async def main():
     from bot.handlers import main_router
     dp.include_router(main_router)
 
+    # Set bot commands (this shows /start button at bottom of chat)
+    from aiogram.types import BotCommand
+    await bot.set_my_commands([
+        BotCommand(command="start", description="🏠 Botni qayta ishga tushirish"),
+        BotCommand(command="cancel", description="🚫 Amalni bekor qilish")
+    ])
+
     logging.info("Starting bot...")
     await dp.start_polling(bot)
 

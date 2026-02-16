@@ -16,19 +16,33 @@ async def cmd_start(message: types.Message, state: FSMContext, session: AsyncSes
     from bot.database import crud
     from bot.database.models import UserRole
     user = await crud.get_user_by_telegram_id(session, message.from_user.id)
+    is_new_user = user is None
     if not user:
         await crud.create_user(session, message.from_user.id, UserRole.USER)
 
-    welcome_text = (
-        f"Assalomu alaykum, <b>{message.from_user.full_name}</b>!\n\n"
-        "Advokatlik xizmati botiga xush kelibsiz. Bu yerda siz o'z savollaringizni berishingiz "
-        "va professional huquqiy yordam olishingiz mumkin.\n\n"
-        "<i>Davom etish uchun quyidagi menyudan foydalaning:</i>"
-    )
-    
     if message.from_user.id == config.admin_id:
         await message.answer("Xush kelibsiz, Admin! Boshqaruv paneli:", reply_markup=get_admin_main_kb())
     else:
+        if is_new_user:
+            # New user - show registration/welcome flow
+            welcome_text = (
+                f"🎉 Assalomu alaykum, <b>{message.from_user.full_name}</b>!\n\n"
+                "Advokatlik xizmati botiga <b>xush kelibsiz</b>! Siz muvaffaqiyatli ro'yxatdan o'tdingiz.\n\n"
+                "━━━━━━━━━━━━━━━━━━━\n"
+                "<b>📋 Botdan qanday foydalanish:</b>\n\n"
+                "1️⃣ <b>❓ Savol berish</b> - Huquqiy savolingizni yozing\n"
+                "2️⃣ <b>💳 To'lov</b> - 50,000 so'm to'lang va chekni yuboring\n"
+                "3️⃣ <b>✅ Tasdiqlash</b> - Admin to'lovni tasdiqlagach javob olasiz\n"
+                "4️⃣ <b>📜 Kuzatish</b> - Savollaringiz holatini ko'ring\n\n"
+                "<i>Davom etish uchun pastdagi tugmalardan foydalaning 👇</i>"
+            )
+        else:
+            # Returning user - simple welcome
+            welcome_text = (
+                f"Assalomu alaykum, <b>{message.from_user.full_name}</b>!\n\n"
+                "Xush kelibsiz! Quyidagi menyudan kerakli bo'limni tanlang:"
+            )
+        
         await message.answer(welcome_text, reply_markup=get_main_kb(), parse_mode="HTML")
 
 @router.message(F.text == "🏠 Foydalanuvchi menyusi")
