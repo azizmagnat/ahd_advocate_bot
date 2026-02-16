@@ -37,6 +37,11 @@ async def process_question_text(message: types.Message, state: FSMContext, sessi
     
     # AI Classification (if enabled)
     from bot.config import config
+    
+    # Debug logging
+    import logging
+    logging.info(f"AI enabled: {config.enable_ai_responses}, Has API key: {config.gemini_api_key is not None}")
+    
     if config.enable_ai_responses and config.gemini_api_key:
         await message.answer("🤖 Savolingiz tahlil qilinmoqda...", parse_mode="HTML")
         
@@ -44,6 +49,8 @@ async def process_question_text(message: types.Message, state: FSMContext, sessi
         
         # Classify question
         classification = await gemini_client.classify_question(message.text)
+        
+        logging.info(f"Classification result: {classification}")
         
         # Update question with AI classification
         from bot.database.crud import get_question_by_id
@@ -57,8 +64,10 @@ async def process_question_text(message: types.Message, state: FSMContext, sessi
         complexity = classification.get('complexity')
         confidence = classification.get('confidence', 0)
         
-        # Simple question - AI answers for free
-        if complexity == 'simple' and confidence >= config.ai_simple_threshold:
+        logging.info(f"Complexity: {complexity}, Confidence: {confidence}, Threshold: {config.ai_simple_threshold}")
+        
+        # Simple question - AI answers for free (lowered threshold to 0.6)
+        if complexity == 'simple' and confidence >= 0.6:
             await message.answer("💡 Bu oddiy savol - bepul javob beramiz!", parse_mode="HTML")
             
             # Generate AI answer
@@ -68,19 +77,21 @@ async def process_question_text(message: types.Message, state: FSMContext, sessi
             )
             
             # Save AI answer
-            if question_obj:
+            if question_obj and ai_answer:
                 question_obj.answer = ai_answer
                 question_obj.status = "answered"
                 question_obj.auto_answered = True
                 await session.commit()
             
-            # Send answer
-            await message.answer(
-                f"🤖 <b>AI Javob:</b>\n\n{ai_answer}",
-                reply_markup=user_kb.get_main_kb(),
-                parse_mode="HTML"
-            )
-            return
+                # Send answer
+                await message.answer(
+                    f"🤖 <b>AI Javob:</b>\n\n{ai_answer}",
+                    reply_markup=user_kb.get_main_kb(),
+                    parse_mode="HTML"
+                )
+                return
+            else:
+                logging.error(f"AI answer generation failed")
         
         # Complex question - requires contract
         elif complexity == 'complex' and confidence >= config.ai_complex_threshold:
@@ -99,6 +110,8 @@ async def process_question_text(message: types.Message, state: FSMContext, sessi
                 parse_mode="HTML"
             )
             return
+    else:
+        logging.info("AI responses disabled - proceeding to payment")
     
     # Medium question or AI disabled - require payment
     payment_details = (
