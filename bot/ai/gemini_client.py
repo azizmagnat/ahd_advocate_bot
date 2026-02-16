@@ -1,44 +1,35 @@
 """
 Google Gemini AI client for legal bot
 """
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 from typing import Optional
 from bot.config import config
 import logging
+import asyncio
 
 class GeminiClient:
-    """Google Gemini AI client wrapper with fallback models"""
+    """Google Gemini AI client wrapper with fallback models (Legacy Library)"""
     
     # List of models to try in order
     MODELS = [
         'gemini-1.5-flash',
         'gemini-1.5-pro',
-        'gemini-2.0-flash-lite-preview-02-05',
-        'gemini-2.0-flash-exp',
+        'gemini-pro', # Very stable legacy model
     ]
     
     def __init__(self):
         self.enabled = config.enable_ai_responses and config.gemini_api_key is not None
         if self.enabled:
-            self.client = genai.Client(api_key=config.gemini_api_key.get_secret_value())
-            logging.info("Gemini AI initialized successfully")
+            genai.configure(api_key=config.gemini_api_key.get_secret_value())
+            logging.info("Gemini AI initialized successfully (Legacy Lib)")
         else:
-            self.client = None
             logging.info("Gemini AI disabled (no API key or disabled in config)")
     
     async def generate_text(self, prompt: str, temperature: float = 0.7) -> Optional[str]:
         """
         Generate text using Gemini with model fallback
-        
-        Args:
-            prompt: The prompt to send to Gemini
-            temperature: Creativity level (0.0 - 1.0)
-        
-        Returns:
-            Generated text or None if disabled/error
         """
-        if not self.enabled or not self.client:
+        if not self.enabled:
             return None
         
         last_error = None
@@ -46,19 +37,24 @@ class GeminiClient:
         for model_name in self.MODELS:
             try:
                 logging.info(f"Trying Gemini model: {model_name}")
-                response = await self.client.aio.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        temperature=temperature,
-                        max_output_tokens=2048
+                model = genai.GenerativeModel(model_name)
+                
+                # Run sync generate_content in executor to avoid blocking
+                loop = asyncio.get_running_loop()
+                response = await loop.run_in_executor(
+                    None, 
+                    lambda: model.generate_content(
+                        prompt,
+                        generation_config=genai.types.GenerationConfig(
+                            temperature=temperature,
+                            max_output_tokens=2048
+                        )
                     )
                 )
                 return response.text
             except Exception as e:
                 logging.warning(f"Model {model_name} failed: {e}")
                 last_error = e
-                # Continue to next model
                 continue
         
         logging.error(f"All Gemini models failed. Last error: {last_error}")
@@ -67,14 +63,6 @@ class GeminiClient:
     async def classify_question(self, question: str) -> dict:
         """
         Classify legal question complexity
-        
-        Returns:
-            {
-                'complexity': 'simple' | 'medium' | 'complex',
-                'confidence': float,
-                'category': str,
-                'reasoning': str
-            }
         """
         prompt = f"""Sen professional yuridik bo'tsan. Quyidagi savolni tahlil qil va javob ber JSON formatda:
 
@@ -102,7 +90,6 @@ Faqat JSON javob ber, boshqa matn yo'q."""
             
             # Parse JSON from response
             import json
-            # Remove markdown code blocks if present
             response = response.strip()
             if response.startswith("```"):
                 response = response.split("```")[1]

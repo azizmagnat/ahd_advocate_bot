@@ -8,4 +8,4 @@ alembic
 pytest
 pytest-asyncio
 greenlet
-google-genai>=0.2.0
+google-generativeai
