@@ -125,7 +125,7 @@ async def contact_us(message: types.Message):
     await message.answer(
         "<b>Biz bilan bog'lanish:</b>\n\n"
         "👨‍⚖️ Advokat: Azizbek To'ymurodov\n"
-        "<telegramMessage>+998 33 012 20 50</telegramMessage>\n"
+        "📞 Telefon: <code>+998 33 012 20 50</code>\n"
         "📍 Manzil: Toshkent shahar, Chilonzor tumani, 20-mavze.",
         parse_mode="HTML"
     )
