@@ -30,11 +30,79 @@ async def process_question_text(message: types.Message, state: FSMContext, sessi
         await message.answer("Savol juda qisqa. Iltimos, batafsilroq yozing.")
         return
 
+    # Create question in database
     question = await QuestionService.create_new_question(session, message.from_user.id, message.from_user.id, message.text)
     
     await state.clear()
+    
+    # AI Classification (if enabled)
+    from bot.config import config
+    if config.enable_ai_responses and config.gemini_api_key:
+        await message.answer("🤖 Savolingiz tahlil qilinmoqda...", parse_mode="HTML")
+        
+        from bot.ai import gemini_client, ai_responder
+        
+        # Classify question
+        classification = await gemini_client.classify_question(message.text)
+        
+        # Update question with AI classification
+        from bot.database.crud import get_question_by_id
+        question_obj = await get_question_by_id(session, question.id)
+        if question_obj:
+            question_obj.complexity = classification.get('complexity', 'medium')
+            question_obj.ai_confidence = classification.get('confidence', 0.5)
+            question_obj.category = classification.get('category', 'boshqa')
+            await session.commit()
+        
+        complexity = classification.get('complexity')
+        confidence = classification.get('confidence', 0)
+        
+        # Simple question - AI answers for free
+        if complexity == 'simple' and confidence >= config.ai_simple_threshold:
+            await message.answer("💡 Bu oddiy savol - bepul javob beramiz!", parse_mode="HTML")
+            
+            # Generate AI answer
+            ai_answer = await ai_responder.generate_answer(
+                message.text,
+                classification.get('category', 'boshqa')
+            )
+            
+            # Save AI answer
+            if question_obj:
+                question_obj.answer = ai_answer
+                question_obj.status = "answered"
+                question_obj.auto_answered = True
+                await session.commit()
+            
+            # Send answer
+            await message.answer(
+                f"🤖 <b>AI Javob:</b>\n\n{ai_answer}",
+                reply_markup=user_kb.get_main_kb(),
+                parse_mode="HTML"
+            )
+            return
+        
+        # Complex question - requires contract
+        elif complexity == 'complex' and confidence >= config.ai_complex_threshold:
+            if question_obj:
+                question_obj.requires_human = True
+                await session.commit()
+            
+            await message.answer(
+                "⚠️ <b>Jiddiy huquqiy holat!</b>\n\n"
+                "Bu ish uchun:\n"
+                "✅ Professional advokat xizmati kerak\n"
+                "✅ Shartnoma tuzish tavsiya etiladi\n\n"
+                f"📋 Tahlil: {classification.get('reasoning', '')}\n\n"
+                "📞 Sizga tez orada bog'lanamiz va batafsil maslahat beramiz.",
+                reply_markup=user_kb.get_main_kb(),
+                parse_mode="HTML"
+            )
+            return
+    
+    # Medium question or AI disabled - require payment
     payment_details = (
-        f"📋 <b>Murojaat #{ question.id} ro'yxatga olindi</b>\n\n"
+        f"📋 <b>Murojaat #{question.id} ro'yxatga olindi</b>\n\n"
         "━━━━━━━━━━━━━━━━━━━\n"
         "⚖️ <b>Konsultatsiya to'lovi:</b> 50,000 so'm\n\n"
         "<b>📤 To'lov ma'lumotlari:</b>\n"

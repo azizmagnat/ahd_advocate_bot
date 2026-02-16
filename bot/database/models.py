@@ -37,6 +37,14 @@ class Question(Base):
     text = Column(Text, nullable=False)
     answer = Column(Text, nullable=True)
     status = Column(PgEnum(QuestionStatus, values_callable=lambda x: [e.value for e in x]), default=QuestionStatus.PENDING)
+    
+    # AI Classification fields
+    complexity = Column(String, nullable=True)  # 'simple', 'medium', 'complex'
+    ai_confidence = Column(Float, nullable=True)  # 0.0 - 1.0
+    category = Column(String, nullable=True)  # 'mehnat', 'fuqarolik', etc.
+    auto_answered = Column(Boolean, default=False)  # AI gave free answer
+    requires_human = Column(Boolean, default=False)  # Needs lawyer
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="questions")

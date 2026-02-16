@@ -56,7 +56,24 @@ async def update_question_status(session: AsyncSession, question_id: int, status
 
 # Payment CRUD
 async def create_payment(session: AsyncSession, question_id: int, amount: float, proof_file_id: str) -> Payment:
-    payment = Payment(question_id=question_id, amount=amount, proof_file_id=proof_file_id)
+    payment = Payment(question_id=question_id, amount=amount, proof_file_id=proof_file_id, payment_method="manual")
+    session.add(payment)
+    await session.commit()
+    await session.refresh(payment)
+    return payment
+
+async def create_online_payment(session: AsyncSession, question_id: int, amount: float,
+                               payment_method: str, invoice_id: str, payment_url: str) -> Payment:
+    """Create payment for online payment (Click/Payme)"""
+    payment = Payment(
+        question_id=question_id,
+        amount=amount,
+        payment_method=payment_method,
+        invoice_id=invoice_id,
+        payment_url=payment_url,
+        proof_file_id=None,
+        status=PaymentStatus.PENDING
+    )
     session.add(payment)
     await session.commit()
     await session.refresh(payment)

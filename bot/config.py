@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     payme_merchant_id: str | None = None
     payme_secret_key: SecretStr | None = None
     payme_test_mode: bool = True
+    
+    # AI Settings (Google Gemini)
+    gemini_api_key: SecretStr | None = None
+    enable_ai_responses: bool = False
+    ai_simple_threshold: float = 0.7  # Above this = simple question (free)
+    ai_complex_threshold: float = 0.9  # Above this = requires contract
 
     class Config:
         env_file = ".env"
