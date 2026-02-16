@@ -2,66 +2,81 @@ from aiogram import Router, types, F, Bot
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import func
 
 from bot.states.admin import AnswerQuestion
 from bot.keyboards import admin as admin_kb
-from bot.keyboards import common as common_kb # Assuming I might need cancel, but not essential
+from bot.keyboards import common as common_kb
 from bot.services.payment_service import PaymentService
 from bot.services.question_service import QuestionService
 from bot.middlewares.auth import AdminMiddleware
+from bot.database.models import Question, Payment, User
 
 router = Router()
 router.message.middleware(AdminMiddleware())
 router.callback_query.middleware(AdminMiddleware())
 
-@router.message(Command("admin"))
-async def admin_start(message: types.Message):
-    await message.answer("Admin Dashboard", reply_markup=admin_kb.get_admin_main_kb())
-
-@router.message(F.text == "Pending Payments")
+@router.message(F.text == "💳 Kutilayotgan to'lovlar")
 async def view_payments(message: types.Message, session: AsyncSession):
-    start_msg = await message.answer("Loading payments...")
     payments = await PaymentService.get_pending_payments(session)
     if not payments:
-        await start_msg.edit_text("No pending payments.")
+        await message.answer("Hozircha kutilayotgan to'lovlar yo'q.")
         return
     
-    await start_msg.delete()
     for p in payments:
         await message.answer_photo(
             photo=p.proof_file_id,
-            caption=f"Payment #{p.id} for Question #{p.question_id}\nAmount: {p.amount}",
-            reply_markup=admin_kb.get_payment_action_kb(p.id)
+            caption=f"💳 <b>To'lov #{p.id}</b>\nSavol ID: #{p.question_id}\nSuma: {p.amount} so'm",
+            reply_markup=admin_kb.get_payment_action_kb(p.id),
+            parse_mode="HTML"
         )
 
 @router.callback_query(F.data.startswith("confirm_payment:"))
-async def confirm_payment(callback: types.CallbackQuery, session: AsyncSession):
+async def confirm_payment(callback: types.CallbackQuery, session: AsyncSession, bot: Bot):
     payment_id = int(callback.data.split(":")[1])
     payment = await PaymentService.confirm_payment(session, payment_id)
     if payment:
-        await callback.message.edit_caption(caption=f"{callback.message.caption}\n\n[CONFIRMED]")
-        await callback.answer("Payment confirmed")
+        await callback.message.edit_caption(caption=f"{callback.message.caption}\n\n✅ <b>TASDIQLANDI</b>", parse_mode="HTML")
+        await callback.answer("To'lov tasdiqlandi")
+        
+        # Notify user
+        question = await QuestionService.get_question(session, payment.question_id)
+        if question:
+            try:
+                # Find user telegram id
+                res = await session.execute(select(User).where(User.id == question.user_id))
+                user = res.scalars().first()
+                if user:
+                    await bot.send_message(
+                        user.telegram_id, 
+                        f"✅ Savol #{question.id} uchun to'lovingiz tasdiqlandi! "
+                        "Tez orada advokat javob yo'llaydi."
+                    )
+            except Exception:
+                pass
     else:
-        await callback.answer("Payment not found or error")
+        await callback.answer("Xatolik yuz berdi")
 
 @router.callback_query(F.data.startswith("reject_payment:"))
 async def reject_payment(callback: types.CallbackQuery, session: AsyncSession):
     payment_id = int(callback.data.split(":")[1])
     await PaymentService.reject_payment(session, payment_id)
-    await callback.message.edit_caption(caption=f"{callback.message.caption}\n\n[REJECTED]")
-    await callback.answer("Payment rejected")
+    await callback.message.edit_caption(caption=f"{callback.message.caption}\n\n❌ <b>RAD ETILDI</b>", parse_mode="HTML")
+    await callback.answer("To'lov rad etildi")
 
-@router.message(F.text == "Paid Questions")
+@router.message(F.text == "📩 To'langan savollar")
 async def view_questions(message: types.Message, session: AsyncSession):
     questions = await QuestionService.get_questions_to_answer(session)
     if not questions:
-        await message.answer("No questions to answer.")
+        await message.answer("Javob berilishi kerak bo'lgan savollar yo'q.")
         return
     
     for q in questions:
         await message.answer(
-            f"Question #{q.id}\n{q.text}",
-            reply_markup=admin_kb.get_question_action_kb(q.id)
+            f"❓ <b>Savol #{q.id}</b>\n\n{q.text}",
+            reply_markup=admin_kb.get_question_action_kb(q.id),
+            parse_mode="HTML"
         )
 
 @router.callback_query(F.data.startswith("answer_question:"))
@@ -69,16 +84,42 @@ async def start_answering(callback: types.CallbackQuery, state: FSMContext):
     question_id = int(callback.data.split(":")[1])
     await state.update_data(question_id=question_id)
     await state.set_state(AnswerQuestion.waiting_for_answer_text)
-    await callback.message.answer(f"Enter answer for Question #{question_id}:")
+    await callback.message.answer(f"✍️ Savol #{question_id} uchun javob yozing:", reply_markup=common_kb.get_cancel_kb())
     await callback.answer()
 
 @router.message(AnswerQuestion.waiting_for_answer_text)
-async def submit_answer(message: types.Message, state: FSMContext, session: AsyncSession):
+async def submit_answer(message: types.Message, state: FSMContext, session: AsyncSession, bot: Bot):
     data = await state.get_data()
     question_id = data.get("question_id")
-    answer_text = message.text
     
-    question = await QuestionService.submit_answer(session, question_id, answer_text)
+    question = await QuestionService.submit_answer(session, question_id, message.text)
     
     await state.clear()
-    await message.answer(f"Answer for Question #{question_id} submitted!")
+    await message.answer(f"✅ Savol #{question_id} uchun javob yuborildi!", reply_markup=admin_kb.get_admin_main_kb())
+    
+    # Notify user
+    try:
+        res = await session.execute(select(User).where(User.id == question.user_id))
+        user = res.scalars().first()
+        if user:
+            await bot.send_message(
+                user.telegram_id,
+                f"📩 <b>Savolingizga javob keldi (ID #{question_id}):</b>\n\n{message.text}",
+                parse_mode="HTML"
+            )
+    except Exception:
+        pass
+
+@router.message(F.text == "📊 Statistika")
+async def view_stats(message: types.Message, session: AsyncSession):
+    users_count = await session.execute(select(func.count(User.id)))
+    questions_count = await session.execute(select(func.count(Question.id)))
+    payments_sum = await session.execute(select(func.sum(Payment.amount)).where(Payment.status == "confirmed"))
+    
+    stats_text = (
+        "📊 <b>Bot statistikasi:</b>\n\n"
+        f"👥 Foydalanuvchilar: {users_count.scalar()}\n"
+        f"❓ Umumiy savollar: {questions_count.scalar()}\n"
+        f"💵 Umumiy tushum: {payments_sum.scalar() or 0} so'm"
+    )
+    await message.answer(stats_text, parse_mode="HTML")
