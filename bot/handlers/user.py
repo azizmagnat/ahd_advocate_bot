@@ -124,9 +124,8 @@ async def view_my_questions(message: types.Message, session: AsyncSession):
 async def contact_us(message: types.Message):
     await message.answer(
         "<b>Biz bilan bog'lanish:</b>\n\n"
-        "👨‍⚖️ Advokat: Palonchi Pistonchiyev\n"
-        "📞 Telefon: +998 90 123 45 67\n"
-        "📍 Manzil: Toshkent sh., Chilonzor tumani, 5-mavze.\n"
-        "📧 Telegram: @advokat_admin",
+        "👨‍⚖️ Advokat: Azizbek To'ymurodov\n"
+        "<telegramMessage>+998 33 012 20 50</telegramMessage>\n"
+        "📍 Manzil: Toshkent shahar, Chilonzor tumani, 20-mavze.",
         parse_mode="HTML"
     )
