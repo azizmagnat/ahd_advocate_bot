@@ -35,7 +35,7 @@ class GeminiClient:
         
         try:
             response = await self.client.aio.models.generate_content(
-                model='gemini-2.0-flash-exp',
+                model='gemini-1.5-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=temperature,
