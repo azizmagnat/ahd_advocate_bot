@@ -14,5 +14,8 @@ class Settings(BaseSettings):
 config = Settings()
 
 # Fix for Railway/Heroku using postgres:// instead of postgresql+asyncpg://
-if config.database_url and config.database_url.startswith("postgres://"):
-    config.database_url = config.database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+if config.database_url:
+    if config.database_url.startswith("postgres://"):
+        config.database_url = config.database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif config.database_url.startswith("postgresql://"):
+        config.database_url = config.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
