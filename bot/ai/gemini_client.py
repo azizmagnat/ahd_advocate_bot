@@ -8,7 +8,15 @@ from bot.config import config
 import logging
 
 class GeminiClient:
-    """Google Gemini AI client wrapper"""
+    """Google Gemini AI client wrapper with fallback models"""
+    
+    # List of models to try in order
+    MODELS = [
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+        'gemini-2.0-flash-lite-preview-02-05',
+        'gemini-2.0-flash-exp',
+    ]
     
     def __init__(self):
         self.enabled = config.enable_ai_responses and config.gemini_api_key is not None
@@ -21,7 +29,7 @@ class GeminiClient:
     
     async def generate_text(self, prompt: str, temperature: float = 0.7) -> Optional[str]:
         """
-        Generate text using Gemini
+        Generate text using Gemini with model fallback
         
         Args:
             prompt: The prompt to send to Gemini
@@ -33,19 +41,28 @@ class GeminiClient:
         if not self.enabled or not self.client:
             return None
         
-        try:
-            response = await self.client.aio.models.generate_content(
-                model='gemini-2.0-flash-lite-preview-02-05',
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=temperature,
-                    max_output_tokens=2048
+        last_error = None
+        
+        for model_name in self.MODELS:
+            try:
+                logging.info(f"Trying Gemini model: {model_name}")
+                response = await self.client.aio.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=temperature,
+                        max_output_tokens=2048
+                    )
                 )
-            )
-            return response.text
-        except Exception as e:
-            logging.error(f"Gemini API error: {e}")
-            return None
+                return response.text
+            except Exception as e:
+                logging.warning(f"Model {model_name} failed: {e}")
+                last_error = e
+                # Continue to next model
+                continue
+        
+        logging.error(f"All Gemini models failed. Last error: {last_error}")
+        return None
     
     async def classify_question(self, question: str) -> dict:
         """
