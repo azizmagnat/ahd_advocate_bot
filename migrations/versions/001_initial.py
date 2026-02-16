@@ -16,15 +16,24 @@ branch_labels = None
 depends_on = None
 
 def upgrade() -> None:
-    # Create Enums
-    user_role = postgresql.ENUM('user', 'admin', name='userrole')
-    user_role.create(op.get_bind())
+    # Create Enums if they don't exist
+    conn = op.get_bind()
     
-    question_status = postgresql.ENUM('pending', 'paid', 'answered', name='questionstatus')
-    question_status.create(op.get_bind())
+    # Helper to check if type exists
+    def type_exists(name):
+        return conn.execute(sa.text(f"SELECT 1 FROM pg_type WHERE typname = '{name}'")).fetchone() is not None
+
+    if not type_exists('userrole'):
+        user_role = postgresql.ENUM('user', 'admin', name='userrole')
+        user_role.create(conn)
     
-    payment_status = postgresql.ENUM('pending', 'confirmed', 'rejected', name='paymentstatus')
-    payment_status.create(op.get_bind())
+    if not type_exists('questionstatus'):
+        question_status = postgresql.ENUM('pending', 'paid', 'answered', name='questionstatus')
+        question_status.create(conn)
+    
+    if not type_exists('paymentstatus'):
+        payment_status = postgresql.ENUM('pending', 'confirmed', 'rejected', name='paymentstatus')
+        payment_status.create(conn)
 
     # Create Tables
     op.create_table(
