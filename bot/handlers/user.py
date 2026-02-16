@@ -45,8 +45,33 @@ async def process_question_text(message: types.Message, state: FSMContext, sessi
     )
     await message.answer(payment_details, reply_markup=user_kb.get_pay_command_kb(question.id), parse_mode="HTML")
 
-@router.callback_query(F.data.startswith("pay:"))
-async def process_pay_click(callback: types.CallbackQuery, state: FSMContext):
+@router.callback_query(F.data.startswith("select_payment_method:"))
+async def select_payment_method(callback: types.CallbackQuery):
+    question_id = int(callback.data.split(":")[1])
+    await callback.message.edit_text(
+        "💳 <b>To'lov usulini tanlang:</b>\n\n"
+        "💳 <b>Onlayn to'lov</b> - Darhol avtomatik tasdiqlanadi\n"
+        "📸 <b>Chek yuborish</b> - Admin tomonidan tekshiriladi",
+        reply_markup=user_kb.get_payment_method_kb(question_id),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("online_payment:"))
+async def select_online_provider(callback: types.CallbackQuery):
+    question_id = int(callback.data.split(":")[1])
+    await callback.message.edit_text(
+        "💳 <b>To'lov tizimini tanlang:</b>\n\n"
+        "🔵 <b>Click</b> - Visa, Mastercard, Humo\n"
+        "🟢 <b>Payme</b> - Barcha kartalar\n\n"
+        "<i>⚠️ Test rejimda: API kalitlar kiritilganda real to'lovlar ishlay boshlaydi</i>",
+        reply_markup=user_kb.get_online_provider_kb(question_id),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("manual_payment:"))
+async def process_manual_payment(callback: types.CallbackQuery, state: FSMContext):
     question_id = int(callback.data.split(":")[1])
     await state.update_data(question_id=question_id)
     await state.set_state(SendProof.waiting_for_screenshot)
@@ -54,6 +79,101 @@ async def process_pay_click(callback: types.CallbackQuery, state: FSMContext):
         "📸 <b>To'lov chekini (rasmda) yuboring.</b>\n\n"
         "Chekda to'lov vaqti va summasi aniq ko'rinishi kerak.",
         reply_markup=common_kb.get_cancel_kb(),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("pay_click:"))
+async def process_click_payment(callback: types.CallbackQuery, session: AsyncSession):
+    question_id = int(callback.data.split(":")[1])
+    
+    from bot.payments.click import ClickPayment
+    from bot.config import config
+    
+    # Initialize Click provider
+    click = ClickPayment(
+        merchant_id=config.click_merchant_id,
+        service_id=config.click_service_id,
+        secret_key=config.click_secret_key.get_secret_value() if config.click_secret_key else None,
+        test_mode=config.click_test_mode
+    )
+    
+    # Create invoice
+    invoice = await click.create_invoice(
+        amount=50000.0,
+        order_id=f"Q{question_id}",
+        description=f"Yuridik maslahat #{question_id}"
+    )
+    
+    # Save payment to database
+    from bot.services.payment_service import PaymentService
+    payment = await PaymentService.create_online_payment(
+        session=session,
+        question_id=question_id,
+        amount=50000.0,
+        payment_method="click",
+        invoice_id=invoice['invoice_id'],
+        payment_url=invoice['payment_url']
+    )
+    
+    test_notice = "\n\n⚠️ <b>TEST REJIM</b> - API kalitlar kiritilganda real to'lovlar faollashadi" if invoice.get('test_mode') else ""
+    
+    await callback.message.edit_text(
+        f"🔵 <b>Click to'lov</b>\n\n"
+        f"💰 Summa: 50,000 so'm\n"
+        f"🆔 Invoice: <code>{invoice['invoice_id']}</code>\n\n"
+        f"<b>To'lov qilish uchun:</b>\n"
+        f"Quyidagi tugmani bosib to'lovni amalga oshiring.{test_notice}",
+        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="💳 To'lov sahifasiga o'tish", url=invoice['payment_url'])]
+        ]),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("pay_payme:"))
+async def process_payme_payment(callback: types.CallbackQuery, session: AsyncSession):
+    question_id = int(callback.data.split(":")[1])
+    
+    from bot.payments.payme import PaymePayment
+    from bot.config import config
+    
+    # Initialize Payme provider
+    payme = PaymePayment(
+        merchant_id=config.payme_merchant_id,
+        secret_key=config.payme_secret_key.get_secret_value() if config.payme_secret_key else None,
+        test_mode=config.payme_test_mode
+    )
+    
+    # Create invoice
+    invoice = await payme.create_invoice(
+        amount=50000.0,
+        order_id=f"Q{question_id}",
+        description=f"Yuridik maslahat #{question_id}"
+    )
+    
+    # Save payment to database
+    from bot.services.payment_service import PaymentService
+    payment = await PaymentService.create_online_payment(
+        session=session,
+        question_id=question_id,
+        amount=50000.0,
+        payment_method="payme",
+        invoice_id=invoice['invoice_id'],
+        payment_url=invoice['payment_url']
+    )
+    
+    test_notice = "\n\n⚠️ <b>TEST REJIM</b> - API kalitlar kiritilganda real to'lovlar faollashadi" if invoice.get('test_mode') else ""
+    
+    await callback.message.edit_text(
+        f"🟢 <b>Payme to'lov</b>\n\n"
+        f"💰 Summa: 50,000 so'm\n"
+        f"🆔 Invoice: <code>{invoice['invoice_id']}</code>\n\n"
+        f"<b>To'lov qilish uchun:</b>\n"
+        f"Quyidagi tugmani bosib to'lovni amalga oshiring.{test_notice}",
+        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="💳 To'lov sahifasiga o'tish", url=invoice['payment_url'])]
+        ]),
         parse_mode="HTML"
     )
     await callback.answer()

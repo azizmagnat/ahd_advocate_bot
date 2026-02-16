@@ -48,7 +48,10 @@ class Payment(Base):
     id = Column(Integer, primary_key=True, index=True)
     question_id = Column(Integer, ForeignKey("questions.id"), unique=True)
     amount = Column(Float, nullable=False)
-    proof_file_id = Column(String, nullable=False)
+    proof_file_id = Column(String, nullable=True)  # Optional for online payments
+    payment_method = Column(String, default="manual")  # 'manual', 'click', 'payme'
+    invoice_id = Column(String, nullable=True)  # Online payment invoice ID
+    payment_url = Column(String, nullable=True)  # Payment link for online
     status = Column(PgEnum(PaymentStatus, values_callable=lambda x: [e.value for e in x]), default=PaymentStatus.PENDING)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

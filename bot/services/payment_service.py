@@ -6,6 +6,19 @@ class PaymentService:
     @staticmethod
     async def submit_payment(session: AsyncSession, question_id: int, amount: float, proof_file_id: str) -> Payment:
         return await crud.create_payment(session, question_id, amount, proof_file_id)
+    
+    @staticmethod
+    async def create_online_payment(session: AsyncSession, question_id: int, amount: float, 
+                                   payment_method: str, invoice_id: str, payment_url: str) -> Payment:
+        """Create payment record for online payment (Click/Payme)"""
+        return await crud.create_online_payment(
+            session=session,
+            question_id=question_id,
+            amount=amount,
+            payment_method=payment_method,
+            invoice_id=invoice_id,
+            payment_url=payment_url
+        )
 
     @staticmethod
     async def get_pending_payments(session: AsyncSession):
