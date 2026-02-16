@@ -8,18 +8,20 @@ router = Router()
 async def global_exception_handler(event: types.ErrorEvent):
     from bot.config import config
     
-    logging.error(f"Kutilmagan xatolik: {event.exception}", exc_info=True)
-    
     # Get bot instance from update
     bot = event.update.bot if event.update else None
+    exception_name = type(event.exception).__name__
     exception_text = str(event.exception)
     
+    logging.error(f"Xatolik [{exception_name}]: {exception_text}", exc_info=True)
+    
     if bot:
-        # Notify user/admin directly in the chat with the actual error for debugging
+        # Detailed error for user to report
         error_msg = (
-            f"❌ <b>Xatolik yuz berdi!</b>\n\n"
-            f"<b>Sababi:</b> <code>{exception_text}</code>\n\n"
-            f"<i>Iltimos, ushbu xabarni ko'chirib menga yuboring.</i>"
+            f"❌ <b>BOTDA XATOLIK YUZ BERDI!</b>\n\n"
+            f"<b>Xato turi:</b> <code>{exception_name}</code>\n"
+            f"<b>Xabari:</b> <code>{exception_text}</code>\n\n"
+            f"<i>Iltimos, ushbu xabarni ko'chirib (copy) menga yuboring!</i>"
         )
         try:
             if event.update.message:

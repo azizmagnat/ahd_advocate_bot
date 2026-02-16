@@ -19,3 +19,8 @@ if config.database_url:
         config.database_url = config.database_url.replace("postgres://", "postgresql+asyncpg://", 1)
     elif config.database_url.startswith("postgresql://"):
         config.database_url = config.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+import logging
+# Mask password for logs
+masked_url = config.database_url.split("@")[-1] if "@" in config.database_url else "unknown"
+logging.info(f"Database URL scheme fixed. Target host: {masked_url}")
