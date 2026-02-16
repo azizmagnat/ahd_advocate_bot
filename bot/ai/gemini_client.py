@@ -10,12 +10,12 @@ from bot.config import config
 class GeminiClient:
     """Google Gemini AI client wrapper using direct REST API"""
     
+    
     # List of models to try in order
+    # gemini-2.0-flash-lite seems to be the only one available (gave 429, others gave 404)
     MODELS = [
-        'gemini-1.5-flash',
-        'gemini-1.5-pro',
-        'gemini-pro',
-        'gemini-2.0-flash-lite',
+        'gemini-2.0-flash-lite-preview-02-05',
+        'gemini-2.0-flash-exp',
     ]
     
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
