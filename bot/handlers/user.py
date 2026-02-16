@@ -16,9 +16,10 @@ router = Router()
 async def ask_question_start(message: types.Message, state: FSMContext):
     await state.set_state(AskQuestion.waiting_for_question_text)
     await message.answer(
-        "<b>Savolingizni yozing:</b>\n\n"
-        "Iltimos, vaziyatni batafsil tushuntiring. Savolingiz qanchalik aniq bo'lsa, "
-        "javob ham shunchalik sifatli bo'ladi.",
+        "⚖️ <b>Huquqiy maslahat so'rash</b>\n\n"
+        "Huquqiy muammo yoki savolingizni batafsil bayon qiling.\n\n"
+        "<i>💡 Ko'rsatma: Vaziyatni qanchalik aniq ifodalasangiz, "
+        "professional maslahatingiz shunchalik samarali bo'ladi.</i>",
         reply_markup=common_kb.get_cancel_kb(),
         parse_mode="HTML"
     )
@@ -33,12 +34,14 @@ async def process_question_text(message: types.Message, state: FSMContext, sessi
     
     await state.clear()
     payment_details = (
-        f"📋 <b>Sizning savolingiz #{question.id} raqami bilan qabul qilindi.</b>\n\n"
-        "Xizmat narxi: <b>50,000 so'm</b>\n\n"
-        "<b>To'lov ma'lumotlari:</b>\n"
-        "💳 Karta raqami: <code>8600 0000 0000 0000</code>\n"
-        "👤 Qabul qiluvchi: <b>Palonchi Pistonchiyev</b>\n\n"
-        "To'lovni amalga oshirgach, pastdagi tugmani bosing va to'lov chekini (screenshot) yuboring."
+        f"📋 <b>Murojaat #{ question.id} ro'yxatga olindi</b>\n\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "⚖️ <b>Konsultatsiya to'lovi:</b> 50,000 so'm\n\n"
+        "<b>📤 To'lov ma'lumotlari:</b>\n"
+        "💳 Karta: <code>8600 0000 0000 0000</code>\n"
+        "👤 Qabul qiluvchi: <b>Azizbek To'ymurodov</b>\n\n"
+        "<i>To'lovni amalga oshirgach, 'To'lov cheki' tugmasini bosib, "
+        "to'lov tasdiqlovchi skrinshot yuboring.</i>"
     )
     await message.answer(payment_details, reply_markup=user_kb.get_pay_command_kb(question.id), parse_mode="HTML")
 
@@ -66,9 +69,11 @@ async def process_proof_photo(message: types.Message, state: FSMContext, session
     
     await state.clear()
     await message.answer(
-        "✅ <b>Rahmat! To'lov cheki qabul qilindi.</b>\n\n"
-        "Admin to'lovni tasdiqlagach, savolingizga javob yo'llanadi. "
-        "Holatni '📜 Mening savollarim' bo'limida kuzatishingiz mumkin.",
+        "✅ <b>To'lov tasdiqlovchi hujjat qabul qilindi</b>\n\n"
+        "🔍 Holati: <b>🟡 Ko'rib chiqilmoqda</b>\n\n"
+        "Administrator to'lovni tasdiqlagach, malakali advokat savolingizga "
+        "javob tayyorlaydi.\n\n"
+        "<i>📜 Holat: '📜 Mening murojaatlarim' bo'limida kuzating.</i>",
         reply_markup=user_kb.get_main_kb(),
         parse_mode="HTML"
     )

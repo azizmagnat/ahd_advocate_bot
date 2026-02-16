@@ -27,20 +27,22 @@ async def cmd_start(message: types.Message, state: FSMContext, session: AsyncSes
             # New user - show registration/welcome flow
             welcome_text = (
                 f"🎉 Assalomu alaykum, <b>{message.from_user.full_name}</b>!\n\n"
-                "Advokatlik xizmati botiga <b>xush kelibsiz</b>! Siz muvaffaqiyatli ro'yxatdan o'tdingiz.\n\n"
+                "🏛️ <b>AHD Yuridik Maslahat Xizmati</b> botiga xush kelibsiz!\n"
+                "Siz muvaffaqiyatli ro'yxatdan o'tdingiz.\n\n"
                 "━━━━━━━━━━━━━━━━━━━\n"
-                "<b>📋 Botdan qanday foydalanish:</b>\n\n"
-                "1️⃣ <b>❓ Savol berish</b> - Huquqiy savolingizni yozing\n"
-                "2️⃣ <b>💳 To'lov</b> - 50,000 so'm to'lang va chekni yuboring\n"
-                "3️⃣ <b>✅ Tasdiqlash</b> - Admin to'lovni tasdiqlagach javob olasiz\n"
-                "4️⃣ <b>📜 Kuzatish</b> - Savollaringiz holatini ko'ring\n\n"
-                "<i>Davom etish uchun pastdagi tugmalardan foydalaning 👇</i>"
+                "<b>⚖️ Xizmat ko'rsatish tartibi:</b>\n\n"
+                "1️⃣ <b>Murojaat yuborish</b> - Huquqiy muammoingizni batafsil bayon qiling\n"
+                "2️⃣ <b>Konsultatsiya to'lovi</b> - 50,000 so'm (to'lov chekini yuboring)\n"
+                "3️⃣ <b>Tasdiqlanish</b> - Administrator to'lovni tasdiqlaydi\n"
+                "4️⃣ <b>Professional maslah</b> - Malakali advokat javob beradi\n\n"
+                "<i>Davom etish uchun pastdagi menyudan foydalaning 👇</i>"
             )
         else:
             # Returning user - simple welcome
             welcome_text = (
                 f"Assalomu alaykum, <b>{message.from_user.full_name}</b>!\n\n"
-                "Xush kelibsiz! Quyidagi menyudan kerakli bo'limni tanlang:"
+                "🏛️ <b>AHD Yuridik Maslahat</b>ga qaytganingizdan xursandmiz.\n"
+                "Quyidagi menyudan kerakli xizmatni tanlang:"
             )
         
         await message.answer(welcome_text, reply_markup=get_main_kb(), parse_mode="HTML")

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 
-from bot.states.admin import AnswerQuestion
+from bot.states.admin import AnswerQuestion, MessageUser
 from bot.keyboards import admin as admin_kb
 from bot.keyboards import common as common_kb
 from bot.services.payment_service import PaymentService
@@ -25,10 +25,19 @@ async def view_payments(message: types.Message, session: AsyncSession):
         return
     
     for p in payments:
+        # Get user_id from question
+        question = await QuestionService.get_question(session, p.question_id)
+        user_telegram_id = None
+        if question:
+            res = await session.execute(select(User).where(User.id == question.user_id))
+            user = res.scalars().first()
+            if user:
+                user_telegram_id = user.telegram_id
+        
         await message.answer_photo(
             photo=p.proof_file_id,
             caption=f"💳 <b>To'lov #{p.id}</b>\nSavol ID: #{p.question_id}\nSuma: {p.amount} so'm",
-            reply_markup=admin_kb.get_payment_action_kb(p.id),
+            reply_markup=admin_kb.get_payment_action_kb(p.id, user_telegram_id or 0),
             parse_mode="HTML"
         )
 
@@ -109,6 +118,52 @@ async def submit_answer(message: types.Message, state: FSMContext, session: Asyn
             )
     except Exception:
         pass
+
+# Admin Messaging System
+@router.callback_query(F.data.startswith("message_user:"))
+async def initiate_message_user(callback: types.CallbackQuery, state: FSMContext):
+    parts = callback.data.split(":")
+    payment_id = int(parts[1])
+    user_telegram_id = int(parts[2])
+    
+    if user_telegram_id == 0:
+        await callback.answer("Foydalanuvchi topilmadi", show_alert=True)
+        return
+    
+    await state.update_data(target_user_id=user_telegram_id, payment_id=payment_id)
+    await state.set_state(MessageUser.waiting_for_message_text)
+    await callback.message.answer(
+        "✉️ Foydalanuvchiga yuboriladigan xabarni yozing:\n\n"
+        "<i>Bekor qilish uchun /cancel buyrug'ini yuboring.</i>",
+        reply_markup=common_kb.get_cancel_kb(),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.message(MessageUser.waiting_for_message_text)
+async def send_message_to_user(message: types.Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    user_id = data.get("target_user_id")
+    payment_id = data.get("payment_id")
+    
+    try:
+        await bot.send_message(
+            user_id,
+            f"📨 <b>Admin xabari:</b>\n\n{message.text}",
+            parse_mode="HTML"
+        )
+        await message.answer(
+            "✅ Xabar muvaffaqiyatli yuborildi!",
+            reply_markup=admin_kb.get_admin_main_kb()
+        )
+    except Exception as e:
+        await message.answer(
+            f"❌ Xatolik: Xabarni yuborib bo'lmadi.\n\n<code>{str(e)}</code>",
+            reply_markup=admin_kb.get_admin_main_kb(),
+            parse_mode="HTML"
+        )
+    
+    await state.clear()
 
 @router.message(F.text == "📊 Statistika")
 async def view_stats(message: types.Message, session: AsyncSession):

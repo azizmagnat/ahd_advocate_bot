@@ -10,10 +10,12 @@ def get_admin_main_kb() -> ReplyKeyboardMarkup:
         resize_keyboard=True
     )
 
-def get_payment_action_kb(payment_id: int) -> InlineKeyboardMarkup:
+def get_payment_action_kb(payment_id: int, user_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Tasdiqlash", callback_data=f"confirm_payment:{payment_id}")
     builder.button(text="❌ Rad etish", callback_data=f"reject_payment:{payment_id}")
+    builder.button(text="✉️ Xabar yuborish", callback_data=f"message_user:{payment_id}:{user_id}")
+    builder.adjust(2, 1)  # First row 2 buttons, second row 1 button
     return builder.as_markup()
 
 def get_question_action_kb(question_id: int) -> InlineKeyboardMarkup:
