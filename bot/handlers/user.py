@@ -48,14 +48,16 @@ async def process_pay_click(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(question_id=question_id)
     await state.set_state(SendProof.waiting_for_screenshot)
     await callback.message.answer(
-        "📸 To'lov chekini (rasmda) yuboring.\n\n"
+        "📸 <b>To'lov chekini (rasmda) yuboring.</b>\n\n"
         "Chekda to'lov vaqti va summasi aniq ko'rinishi kerak.",
-        reply_markup=common_kb.get_cancel_kb()
+        reply_markup=common_kb.get_cancel_kb(),
+        parse_mode="HTML"
     )
     await callback.answer()
 
 @router.message(SendProof.waiting_for_screenshot, F.photo)
 async def process_proof_photo(message: types.Message, state: FSMContext, session: AsyncSession, bot: Bot):
+    await bot.send_chat_action(message.chat.id, "upload_photo")
     data = await state.get_data()
     question_id = data.get("question_id")
     photo_id = message.photo[-1].file_id
@@ -66,7 +68,7 @@ async def process_proof_photo(message: types.Message, state: FSMContext, session
     await message.answer(
         "✅ <b>Rahmat! To'lov cheki qabul qilindi.</b>\n\n"
         "Admin to'lovni tasdiqlagach, savolingizga javob yo'llanadi. "
-        "Holatni 'Mening savollarim' bo'limida kuzatishingiz mumkin.",
+        "Holatni '📜 Mening savollarim' bo'limida kuzatishingiz mumkin.",
         reply_markup=user_kb.get_main_kb(),
         parse_mode="HTML"
     )
@@ -87,6 +89,11 @@ async def process_proof_photo(message: types.Message, state: FSMContext, session
         )
     except Exception:
         pass
+
+@router.message(SendProof.waiting_for_screenshot)
+async def process_proof_wrong_type(message: types.Message):
+    await message.answer("⚠️ Iltimos, to'lov chekini <b>rasm ko'rinishida</b> yuboring.")
+
 
 @router.message(F.text == "📜 Mening savollarim")
 async def view_my_questions(message: types.Message, session: AsyncSession):
