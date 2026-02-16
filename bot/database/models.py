@@ -24,7 +24,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
-    role = Column(PgEnum(UserRole), default=UserRole.USER)
+    role = Column(PgEnum(UserRole, values_callable=lambda x: [e.value for e in x]), default=UserRole.USER)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     questions = relationship("Question", back_populates="user")
@@ -36,7 +36,7 @@ class Question(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     text = Column(Text, nullable=False)
     answer = Column(Text, nullable=True)
-    status = Column(PgEnum(QuestionStatus), default=QuestionStatus.PENDING)
+    status = Column(PgEnum(QuestionStatus, values_callable=lambda x: [e.value for e in x]), default=QuestionStatus.PENDING)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="questions")
@@ -49,7 +49,7 @@ class Payment(Base):
     question_id = Column(Integer, ForeignKey("questions.id"), unique=True)
     amount = Column(Float, nullable=False)
     proof_file_id = Column(String, nullable=False)
-    status = Column(PgEnum(PaymentStatus), default=PaymentStatus.PENDING)
+    status = Column(PgEnum(PaymentStatus, values_callable=lambda x: [e.value for e in x]), default=PaymentStatus.PENDING)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     question = relationship("Question", back_populates="payment")
