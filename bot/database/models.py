@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, BigInteger, Text, Float, DateTime, ForeignKey, Enum as PgEnum
+from sqlalchemy import Column, Integer, String, BigInteger, Text, Float, DateTime, ForeignKey, Enum as PgEnum, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 import enum
