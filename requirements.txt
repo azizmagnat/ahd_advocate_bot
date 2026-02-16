@@ -8,4 +8,4 @@ alembic
 pytest
 pytest-asyncio
 greenlet
-google-generativeai
+aiohttp

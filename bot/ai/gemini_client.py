@@ -1,61 +1,84 @@
 """
-Google Gemini AI client for legal bot
+Google Gemini AI client for legal bot (Direct REST API)
 """
-import google.generativeai as genai
+import aiohttp
+import logging
+import json
 from typing import Optional
 from bot.config import config
-import logging
-import asyncio
 
 class GeminiClient:
-    """Google Gemini AI client wrapper with fallback models (Legacy Library)"""
+    """Google Gemini AI client wrapper using direct REST API"""
     
     # List of models to try in order
     MODELS = [
         'gemini-1.5-flash',
         'gemini-1.5-pro',
-        'gemini-pro', # Very stable legacy model
+        'gemini-pro',
+        'gemini-2.0-flash-lite',
     ]
     
+    BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    
     def __init__(self):
-        self.enabled = config.enable_ai_responses and config.gemini_api_key is not None
+        self.api_key = config.gemini_api_key.get_secret_value() if config.gemini_api_key else None
+        self.enabled = config.enable_ai_responses and self.api_key is not None
         if self.enabled:
-            genai.configure(api_key=config.gemini_api_key.get_secret_value())
-            logging.info("Gemini AI initialized successfully (Legacy Lib)")
+            logging.info("Gemini AI initialized successfully (REST API)")
         else:
             logging.info("Gemini AI disabled (no API key or disabled in config)")
     
     async def generate_text(self, prompt: str, temperature: float = 0.7) -> Optional[str]:
         """
-        Generate text using Gemini with model fallback
+        Generate text using Gemini REST API with model fallback
         """
         if not self.enabled:
             return None
         
         last_error = None
         
-        for model_name in self.MODELS:
-            try:
-                logging.info(f"Trying Gemini model: {model_name}")
-                model = genai.GenerativeModel(model_name)
-                
-                # Run sync generate_content in executor to avoid blocking
-                loop = asyncio.get_running_loop()
-                response = await loop.run_in_executor(
-                    None, 
-                    lambda: model.generate_content(
-                        prompt,
-                        generation_config=genai.types.GenerationConfig(
-                            temperature=temperature,
-                            max_output_tokens=2048
-                        )
-                    )
-                )
-                return response.text
-            except Exception as e:
-                logging.warning(f"Model {model_name} failed: {e}")
-                last_error = e
-                continue
+        async with aiohttp.ClientSession() as session:
+            for model_name in self.MODELS:
+                try:
+                    logging.info(f"Trying Gemini model (REST): {model_name}")
+                    
+                    url = self.BASE_URL.format(model=model_name)
+                    params = {"key": self.api_key}
+                    
+                    headers = {"Content-Type": "application/json"}
+                    payload = {
+                        "contents": [{
+                            "parts": [{"text": prompt}]
+                        }],
+                        "generationConfig": {
+                            "temperature": temperature,
+                            "maxOutputTokens": 2048
+                        }
+                    }
+                    
+                    async with session.post(url, params=params, json=payload, headers=headers) as response:
+                        if response.status != 200:
+                            error_text = await response.text()
+                            logging.warning(f"Model {model_name} failed with status {response.status}: {error_text}")
+                            last_error = f"Status {response.status}: {error_text}"
+                            continue
+                            
+                        data = await response.json()
+                        
+                        # Extract text from response
+                        if 'candidates' in data and data['candidates']:
+                            content = data['candidates'][0].get('content', {})
+                            parts = content.get('parts', [])
+                            if parts:
+                                return parts[0].get('text', '')
+                        
+                        logging.warning(f"Empty response from {model_name}: {data}")
+                        continue
+                        
+                except Exception as e:
+                    logging.warning(f"Model {model_name} error: {e}")
+                    last_error = e
+                    continue
         
         logging.error(f"All Gemini models failed. Last error: {last_error}")
         return None
@@ -89,7 +112,6 @@ Faqat JSON javob ber, boshqa matn yo'q."""
                 return self._default_classification()
             
             # Parse JSON from response
-            import json
             response = response.strip()
             if response.startswith("```"):
                 response = response.split("```")[1]
