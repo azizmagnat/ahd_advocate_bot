@@ -4,6 +4,7 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
+import logging
 
 from bot.states.admin import AnswerQuestion, MessageUser
 from bot.keyboards import admin as admin_kb
@@ -118,6 +119,26 @@ async def submit_answer(message: types.Message, state: FSMContext, session: Asyn
             )
     except Exception:
         pass
+    
+    # Archive to group (if configured)
+    from bot.config import config
+    if config.archive_group_id:
+        try:
+            archive_message = (
+                f"📚 <b>Yangi Savol-Javob Arxivi</b>\n\n"
+                f"🆔 Murojaat: #{question_id}\n"
+                f"📅 Sana: {question.created_at.strftime('%d.%m.%Y')}\n\n"
+                f"❓ <b>Savol:</b>\n{question.text}\n\n"
+                f"💬 <b>Javob:</b>\n{message.text}\n\n"
+                f"━━━━━━━━━━━━━━━━━━━"
+            )
+            await bot.send_message(
+                config.archive_group_id,
+                archive_message,
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logging.error(f"Failed to send to archive group: {e}")
 
 # Admin Messaging System
 @router.callback_query(F.data.startswith("message_user:"))

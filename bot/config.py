@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     bot_token: SecretStr
     admin_id: int
     database_url: str
+    archive_group_id: int | None = None  # Optional: Telegram group ID for Q&A archive
 
     class Config:
         env_file = ".env"
