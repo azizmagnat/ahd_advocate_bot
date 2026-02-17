@@ -35,12 +35,31 @@ async def view_payments(message: types.Message, session: AsyncSession):
             if user:
                 user_telegram_id = user.telegram_id
         
-        await message.answer_photo(
-            photo=p.proof_file_id,
-            caption=f"💳 <b>To'lov #{p.id}</b>\nSavol ID: #{p.question_id}\nSuma: {p.amount} so'm",
-            reply_markup=admin_kb.get_payment_action_kb(p.id, user_telegram_id or 0),
-            parse_mode="HTML"
-        )
+        # Validate proof_file_id is not empty string or None
+        if p.proof_file_id and str(p.proof_file_id).strip():
+            try:
+                await message.answer_photo(
+                    photo=p.proof_file_id,
+                    caption=f"💳 <b>To'lov #{p.id}</b>\nSavol ID: #{p.question_id}\nSuma: {p.amount} so'm",
+                    reply_markup=admin_kb.get_payment_action_kb(p.id, user_telegram_id or 0),
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logging.error(f"Error sending payment photo: {e}")
+                # Fallback to text message
+                await message.answer(
+                    f"💳 <b>To'lov #{p.id}</b> (Rasm yuklanmadi: {e})\nSavol ID: #{p.question_id}\nSuma: {p.amount} so'm\n"
+                    f"Usul: {p.payment_method}",
+                    reply_markup=admin_kb.get_payment_action_kb(p.id, user_telegram_id or 0),
+                    parse_mode="HTML"
+                )
+        else:
+            await message.answer(
+                f"💳 <b>To'lov #{p.id}</b>\nSavol ID: #{p.question_id}\nSuma: {p.amount} so'm\n"
+                f"Usul: {p.payment_method}",
+                reply_markup=admin_kb.get_payment_action_kb(p.id, user_telegram_id or 0),
+                parse_mode="HTML"
+            )
 
 @router.callback_query(F.data.startswith("confirm_payment:"))
 async def confirm_payment(callback: types.CallbackQuery, session: AsyncSession, bot: Bot):
