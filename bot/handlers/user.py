@@ -280,21 +280,24 @@ async def process_proof_photo(message: types.Message, state: FSMContext, session
     )
     
     # Notify Admin
-    try:
-        await bot.send_photo(
-            chat_id=config.admin_id,
-            photo=photo_id,
-            caption=(
-                f"🆕 <b>Yangi to'lov!</b>\n\n"
-                f"Savol ID: #{question_id}\n"
-                f"Mijoz: {message.from_user.full_name} (@{message.from_user.username or 'yo-q'})\n"
-                f"Suma: 50,000 so'm"
-            ),
-            reply_markup=get_payment_action_kb(payment.id),
-            parse_mode="HTML"
-        )
-    except Exception:
-        pass
+    if photo_id:
+        try:
+            await bot.send_photo(
+                chat_id=config.admin_id,
+                photo=photo_id,
+                caption=(
+                    f"🆕 <b>Yangi to'lov!</b>\n\n"
+                    f"Savol ID: #{question_id}\n"
+                    f"Mijoz: {message.from_user.full_name} (@{message.from_user.username or 'yo-q'})\n"
+                    f"Suma: 50,000 so'm"
+                ),
+                reply_markup=get_payment_action_kb(payment.id),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logging.error(f"Failed to send admin notification: {e}")
+    else:
+        logging.error("No photo_id found for payment notification")
 
 @router.message(SendProof.waiting_for_screenshot)
 async def process_proof_wrong_type(message: types.Message):
